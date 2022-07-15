@@ -5,12 +5,16 @@ local EXPR_NOREF_NOERR_TRUNC = { expr = true, noremap = true, silent = true, now
 -- constants
 RED_PILL = 1
 BLUE_PILL = 2
+YELLOW_PILL = 3
 -- globals
 CUR_MODE = BLUE_PILL
 _PROJ_ROOT = vim.fn.getcwd()
 PROJ_ROOT = vim.fn.getcwd() -- this cannot be relative path!
 
 local M = {}
+
+local notify = require'notify'
+local path = require'neo-root-path'
 
 ---------------------------------------------------------------------------------------------------
 function M.setup(config)
@@ -23,25 +27,44 @@ function M.apply_change()
   if vim.bo.buftype ~= "terminal" -- TODO: should be customizable
     and vim.api.nvim_win_get_config(0).relative == ''
     and vim.bo.filetype ~= "dashboard"
+    and vim.bo.filetype ~= "help"
+    and vim.bo.filetype ~= "fugitive"
+    and vim.bo.filetype ~= "TelescopePrompt"
+    and vim.bo.filetype ~= "Outline"
+    and vim.bo.filetype ~= "flutterToolsOutline"
     and vim.bo.filetype ~= "NvimTree"
     and vim.bo.filetype ~= "FTerm" then
     if CUR_MODE == RED_PILL then
       vim.cmd('cd ' .. vim.fn.expand('%:p:h'))
-    else -- CUR_MODE == BLUE_PILL
+    elseif CUR_MODE == BLUE_PILL then-- CUR_MODE == BLUE_PILL
       vim.cmd('cd ' .. PROJ_ROOT)
+    elseif CUR_MODE == YELLOW_PILL then-- CUR_MODE == YELLOW_PILL
+      local current_dir = vim.fn.expand("%:p:h")
+      local root_patterns = { ".git", "pubspec.yaml" }
+      local root_dir = path.find_root(root_patterns, current_dir) or PROJ_ROOT
+      vim.cmd('cd ' .. root_dir)
     end
-    print(vim.fn.getcwd() .. ' (cwd = ' .. (CUR_MODE == RED_PILL and 'file' or 'proj-root') .. ')')
+    M.notify(vim.fn.getcwd() .. ' (cwd = ' .. CUR_MODE .. ')')
   end
+end
+
+function M.notify(message)
+  -- notify({ message }, 'INFO', {
+  --   title = 'NeoRoot',
+  --   timeout = 3,
+  -- })
 end
 
 function M.change_mode()
   if vim.api.nvim_win_get_config(0).relative ~= '' then
-    print('[NeoRoot] Cannot change mode in floating window.')
+    M.notify('[NeoRoot] Cannot change mode in floating window.')
     return
   end
   if CUR_MODE == BLUE_PILL then
-    CUR_MODE = RED_PILL
+    CUR_MODE = YELLOW_PILL
   elseif CUR_MODE == RED_PILL then
+    CUR_MODE = BLUE_PILL
+  elseif CUR_MODE == YELLOW_PILL then
     CUR_MODE = BLUE_PILL
   end
   M.apply_change()
